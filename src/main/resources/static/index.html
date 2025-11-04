@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To-Do List</title>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #f0f4ff, #fafafa);
+            margin: 0;
+            padding: 0;
+        }
+
+        nav {
+            background-color: #4a90e2;
+            color: white;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: flex-start;
+            gap: 20px;
+            align-items: center;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        nav a:hover {
+            color: #d1e0ff;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 600px;
+            margin: 30px auto;
+            background-color: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        input, button {
+            padding: 10px;
+            font-size: 15px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #4a90e2;
+            box-shadow: 0 0 6px rgba(74,144,226,0.4);
+        }
+
+        button {
+            background-color: #4a90e2;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background-color: #357ABD;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            margin-top: 15px;
+        }
+
+        li {
+            background-color: #f5f7ff;
+            padding: 12px;
+            border-radius: 10px;
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+        }
+
+        li:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        li.completed {
+            text-decoration: line-through;
+            color: #777;
+            background-color: #d9e8ff;
+        }
+
+        .task-actions button {
+            margin-left: 8px;
+            padding: 6px 10px;
+            font-size: 14px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .task-actions button.complete {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .task-actions button.complete:hover {
+            background-color: #218838;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+        }
+
+        .task-actions button.delete {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .task-actions button.delete:hover {
+            background-color: #c82333;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <a id="homeTab">Home</a>
+    <a id="completedTab">Completed Tasks</a>
+</nav>
+
+<div class="container" id="homeSection">
+    <h2>Add Task</h2>
+    <form id="taskForm">
+        <input type="text" id="taskName" placeholder="Task name" required>
+        <input type="date" id="taskDate" required>
+        <input type="time" id="taskTime" required>
+        <button type="submit">Add Task</button>
+    </form>
+
+    <h3>Active Tasks</h3>
+    <ul id="taskList"></ul>
+</div>
+
+<div class="container hidden" id="completedSection">
+    <h2>Completed Tasks</h2>
+    <ul id="completedList"></ul>
+</div>
+
+<script>
+    const apiBase = "http://localhost:8080/api/tasks";
+
+    function loadTasks() {
+        fetch(apiBase)
+            .then(res => res.json())
+            .then(tasks => {
+                const list = document.getElementById("taskList");
+                list.innerHTML = "";
+                tasks.forEach(task => {
+                    const li = document.createElement("li");
+                    li.innerHTML = `
+                        <span>${task.taskName} (${task.taskDate} ${task.taskTime})</span>
+                        <div class="task-actions">
+                            ${task.completed ? "" : `<button class="complete" onclick="toggleComplete(${task.id})">✔ Complete</button>`}
+                            <button class="delete" onclick="deleteTask(${task.id}, false)">🗑️ Delete</button>
+                        </div>
+                    `;
+                    list.appendChild(li);
+                });
+            })
+            .catch(() => alert("Failed to load tasks!"));
+    }
+
+    function loadCompleted() {
+        fetch(apiBase + "/completed")
+            .then(res => res.json())
+            .then(tasks => {
+                const list = document.getElementById("completedList");
+                list.innerHTML = "";
+                tasks.forEach(task => {
+                    const li = document.createElement("li");
+                    li.classList.add("completed");
+                    li.innerHTML = `
+                        <span>${task.taskName} (${task.taskDate} ${task.taskTime})</span>
+                        <div class="task-actions">
+                            <button class="delete" onclick="deleteTask(${task.id}, true)">🗑️ Delete</button>
+                        </div>
+                    `;
+                    list.appendChild(li);
+                });
+            })
+            .catch(() => alert("Failed to load completed tasks!"));
+    }
+
+    document.getElementById("taskForm").addEventListener("submit", e => {
+        e.preventDefault();
+
+        const newTask = {
+            taskName: document.getElementById("taskName").value,
+            taskDate: document.getElementById("taskDate").value,
+            taskTime: document.getElementById("taskTime").value,
+            completed: false
+        };
+
+        fetch(apiBase, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(newTask)
+        })
+            .then(res => {
+                if(res.ok){
+                    alert("Task added successfully!");
+                    loadTasks();
+                    e.target.reset();
+                } else if(res.status === 400){
+                    alert("Invalid date or time!");
+                } else {
+                    alert("Something went wrong!");
+                }
+            })
+            .catch(() => alert("Server is unreachable!"));
+    });
+
+    function toggleComplete(id) {
+        fetch(`${apiBase}/${id}`, { method: "PUT" })
+            .then(res => {
+                if(res.ok){
+                    alert("Task marked as complete!");
+                    loadTasks();
+                    loadCompleted();
+                } else {
+                    alert("Task not found!");
+                }
+            })
+            .catch(() => alert("Server error!"));
+    }
+
+    function deleteTask(id, completed) {
+        fetch(`${apiBase}/${id}`, { method: "DELETE" })
+            .then(res => {
+                if(res.ok){
+                    alert("Task deleted!");
+                    completed ? loadCompleted() : loadTasks();
+                } else {
+                    alert("Task not found!");
+                }
+            })
+            .catch(() => alert("Server error!"));
+    }
+
+    document.getElementById("homeTab").addEventListener("click", () => {
+        document.getElementById("homeSection").classList.remove("hidden");
+        document.getElementById("completedSection").classList.add("hidden");
+    });
+
+    document.getElementById("completedTab").addEventListener("click", () => {
+        document.getElementById("homeSection").classList.add("hidden");
+        document.getElementById("completedSection").classList.remove("hidden");
+        loadCompleted();
+    });
+
+    loadTasks();
+</script>
+
+</body>
+</html>
